@@ -1,18 +1,22 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
 <BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.duckmain.ghostcat.controller.ChatController">
     <center>
         <TextArea fx:id="chatArea" editable="false" wrapText="true" />
     </center>
     <bottom>
-        <HBox spacing="8" padding="10">
+        <HBox spacing="8">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
             <TextField fx:id="messageField" HBox.hgrow="ALWAYS" promptText="메시지 입력" />
             <Button text="Send" onAction="#onSendClick" />
         </HBox>
     </bottom>
     <top>
-        <HBox spacing="12" padding="10">
+        <HBox spacing="12">
             <Label fx:id="statusLabel" />
             <Label text="Peers:" />
             <ListView fx:id="peersList" prefWidth="200" prefHeight="120" />

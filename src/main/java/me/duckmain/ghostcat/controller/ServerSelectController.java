@@ -44,7 +44,7 @@ public class ServerSelectController {
     @FXML
     protected void onBackClick() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("LoginView.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("../LoginView.fxml"));
             Scene scene = new Scene(loader.load(), 480, 260);
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
@@ -120,7 +120,7 @@ public class ServerSelectController {
 
     private void moveToChat(String nick, String host, int port) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("ChatView.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("../ChatView.fxml"));
             Scene scene = new Scene(loader.load(), 900, 640);
             me.duckmain.ghostcat.controller.ChatController ctrl = loader.getController();
             ctrl.initConnection(nick, host, port);
