@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<BorderPane xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.duckmain.ghostcat.controller.ChatController">
+    <center>
+        <TextArea fx:id="chatArea" editable="false" wrapText="true" />
+    </center>
+    <bottom>
+        <HBox spacing="8" padding="10">
+            <TextField fx:id="messageField" HBox.hgrow="ALWAYS" promptText="메시지 입력" />
+            <Button text="Send" onAction="#onSendClick" />
+        </HBox>
+    </bottom>
+    <top>
+        <HBox spacing="12" padding="10">
+            <Label fx:id="statusLabel" />
+            <Label text="Peers:" />
+            <ListView fx:id="peersList" prefWidth="200" prefHeight="120" />
+            <Button text="Refresh Peers" onAction="#onRefreshPeers" />
+        </HBox>
+    </top>
+</BorderPane>
