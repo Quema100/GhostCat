@@ -9,8 +9,6 @@ import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
-
-
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.X509Certificate;

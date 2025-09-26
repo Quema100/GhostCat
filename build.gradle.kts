@@ -28,6 +28,7 @@ tasks.withType<JavaCompile> {
 application {
     mainModule.set("me.duckmain.ghostcat")
     mainClass.set("me.duckmain.ghostcat.MainApplication")
+    mainClass.set("me.duckmain.ghostcat.MainApplication")
 }
 
 javafx {

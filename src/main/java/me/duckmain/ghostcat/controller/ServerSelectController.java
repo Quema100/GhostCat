@@ -49,8 +49,8 @@ public class ServerSelectController {
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
         } catch (IOException err) {
-            infoLabel.setText("이전 화면 로드 실패: " + err.getMessage());
-            logger.log(Level.SEVERE, "이전 화면 로드 실패", err);
+            infoLabel.setText("Login View load fail: " + err.getMessage());
+            logger.log(Level.SEVERE, "Login View load fail", err);
         }
     }
 
@@ -59,8 +59,8 @@ public class ServerSelectController {
         try {
             CryptoUtils.generateStaticKeypair();
         } catch (Exception err) {
-            infoLabel.setText("Crypto 초기화 실패: " + err.getMessage());
-            logger.log(Level.SEVERE, "Crypto 초기화 실패", err);
+            infoLabel.setText("Crypto init fail: " + err.getMessage());
+            logger.log(Level.SEVERE, "Crypto init fail", err);
             return;
         }
 
@@ -76,7 +76,7 @@ public class ServerSelectController {
                         try {
                             server.start();
                         } catch (Exception e) {
-                            logger.log(Level.SEVERE, "로컬 서버 시작 실패", e);
+                            logger.log(Level.SEVERE, "local server start fail", e);
                         }
                     });
                     serverThread.setDaemon(true);
@@ -86,8 +86,8 @@ public class ServerSelectController {
                     Thread.sleep(500); // 최소 대기
                     Platform.runLater(() -> moveToChat(nickname, "127.0.0.1", 7777));
                 } catch (Exception err) {
-                    Platform.runLater(() -> infoLabel.setText("로컬 서버 시작 실패: " + err.getMessage()));
-                    logger.log(Level.SEVERE, "로컬 서버 시작 실패", err);
+                    Platform.runLater(() -> infoLabel.setText("local server start fail: " + err.getMessage()));
+                    logger.log(Level.SEVERE, "local server start fail", err);
                 }
             }).start();
             return;
@@ -128,8 +128,8 @@ public class ServerSelectController {
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
         } catch (IOException err) {
-            infoLabel.setText("Chat 화면 로드 실패: " + err.getMessage());
-            logger.log(Level.SEVERE, "Chat 화면 로드 실패", err);
+            infoLabel.setText("Chat view load fail: " + err.getMessage());
+            logger.log(Level.SEVERE, "Chat view load fail", err);
         }
     }
 }

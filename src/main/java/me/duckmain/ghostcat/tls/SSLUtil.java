@@ -40,9 +40,7 @@ public class SSLUtil {
         return ctx;
     }
 
-
-    // For POC convenience: trust all certificates (client-side). In production DO NOT use.
-    public static void ensureTrustAll() throws Exception {
+    public static SSLSocketFactory trustAllFactory() throws Exception {
         TrustManager[] tms = new TrustManager[]{ new X509TrustManager() {
             public void checkClientTrusted(X509Certificate[] xcs, String string) {}
             public void checkServerTrusted(X509Certificate[] xcs, String string) {}
@@ -50,6 +48,18 @@ public class SSLUtil {
         }};
         SSLContext ctx = SSLContext.getInstance("TLS");
         ctx.init(null, tms, new SecureRandom());
-        SSLContext.setDefault(ctx);
+        return ctx.getSocketFactory();
     }
+
+    // For POC convenience: trust all certificates (client-side). In production DO NOT use.
+    // public static void ensureTrustAll() throws Exception {
+    //     TrustManager[] tms = new TrustManager[]{ new X509TrustManager() {
+    //         public void checkClientTrusted(X509Certificate[] xcs, String string) {}
+    //         public void checkServerTrusted(X509Certificate[] xcs, String string) {}
+    //         public X509Certificate[] getAcceptedIssuers() { return new X509Certificate[0]; }
+    //     }};
+    //     SSLContext ctx = SSLContext.getInstance("TLS");
+    //     ctx.init(null, tms, new SecureRandom());
+    //     SSLContext.setDefault(ctx);
+    // }
 }

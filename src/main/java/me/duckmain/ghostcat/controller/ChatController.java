@@ -5,7 +5,6 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import me.duckmain.ghostcat.crypto.CryptoUtils;
 import me.duckmain.ghostcat.network.ChatClient;
-import me.duckmain.ghostcat.tls.SSLUtil;
 
 import java.security.KeyPair;
 import java.util.Base64;
@@ -32,59 +31,40 @@ public class ChatController {
         peersList.setOnMouseClicked(evt -> {
             if (evt.getClickCount() == 2) {
                 String sel = peersList.getSelectionModel().getSelectedItem();
-                if (sel != null) {
-                    appendChat("Selected peer: " + sel);
-                }
+                if (sel != null) appendChat("Selected peer: " + sel);
             }
         });
     }
 
     public void initConnection(String nickname, String host, int port) {
         this.nick = nickname;
-        appendChat("닉네임: " + nick);
+        appendChat("Nickname: " + nick);
 
-        try {
-            if (CryptoUtils.getStaticPublic() == null) {
-                CryptoUtils.generateStaticKeypair();
-            }
-        } catch (Exception e) {
-            logError("Static keypair generation failed", e);
-            return;
-        }
+        try { if (CryptoUtils.getStaticPublic() == null) CryptoUtils.generateStaticKeypair(); }
+        catch (Exception e) { logError("Static keypair generation failed", e); return; }
 
         client = new ChatClient(nick, this::onIncomingLine);
 
-        if ("AUTO".equals(host)) {
-            new Thread(() -> {
-                client.autoDiscoverAndConnect(port);
-                try { Thread.sleep(100); } catch (InterruptedException ignored) {}
-                try { client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic())); } catch (Exception ignored) {}
-                Platform.runLater(() -> statusLabel.setText("Mode: AUTO (discovering local server)"));
-            }).start();
-        } else {
-            final String targetHost = host;
-            final int targetPort = port;
-            new Thread(() -> {
-                try {
-                    SSLUtil.ensureTrustAll();
-                    client.connectToTLS(targetHost, targetPort);
-                    client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
-                    Platform.runLater(() -> statusLabel.setText("Connected to " + targetHost + ":" + targetPort));
-                } catch (Exception e) {
-                    logError("Connection failed to " + targetHost + ":" + targetPort, e);
-                    Platform.runLater(() -> statusLabel.setText("Connect failed: " + e.getMessage()));
+        new Thread(() -> {
+            try {
+                if ("AUTO".equals(host)) {
+                    client.autoDiscoverAndConnect(port); // auto 경로도 내부에서 trustFactory 사용
+                } else {
+                    client.connectToTLS(host, port); // 내부에서 trustFactory 사용
                 }
-            }).start();
-        }
+                client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
+                Platform.runLater(() -> statusLabel.setText("Connected as " + nick));
+            } catch (Exception e) {
+                logError("Connection failed", e);
+                Platform.runLater(() -> statusLabel.setText("Connect failed: " + e.getMessage()));
+            }
+        }).start();
     }
 
     @FXML
     protected void onRefreshPeers() {
-        try {
-            client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
-        } catch (Exception e) {
-            logError("Refresh peers failed", e);
-        }
+        try { client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic())); }
+        catch (Exception e) { logError("Refresh peers failed", e); }
     }
 
     private void onIncomingLine(String line) {
@@ -103,35 +83,18 @@ public class ChatController {
                 break;
 
             case "KEY":
-                if (parts.length >= 4) {
-                    String from = parts[1];
-                    String to = parts[2];
-                    String pubb64 = parts[3];
-                    if (to.equals(nick)) {
-                        try {
-                            byte[] theirStatic = Base64.getDecoder().decode(pubb64);
-                            CryptoUtils.storePeerStatic(from, theirStatic);
-                            appendChat("Stored static key for " + from);
-                        } catch (Exception e) {
-                            logError("KEY processing failed from " + from, e);
-                        }
-                    }
+                if (parts.length >= 4 && parts[2].equals(nick)) {
+                    try { CryptoUtils.storePeerStatic(parts[1], Base64.getDecoder().decode(parts[3]));
+                        appendChat("Stored static key for " + parts[1]);
+                    } catch (Exception e) { logError("KEY processing failed from " + parts[1], e); }
                 }
                 break;
 
             case "MSG":
-                if (parts.length >= 4) {
-                    String from = parts[1];
-                    String to = parts[2];
-                    String payload = parts[3];
-                    if (!to.equals(nick) && !to.equals("*")) break;
-
+                if (parts.length >= 4 && (parts[2].equals(nick) || parts[2].equals("*"))) {
                     try {
-                        String[] pcs = payload.split(":", 3);
-                        if (pcs.length != 3) {
-                            appendChat("Invalid MSG payload from " + from);
-                            break;
-                        }
+                        String[] pcs = parts[3].split(":", 3);
+                        if (pcs.length != 3) { appendChat("Invalid MSG payload from " + parts[1]); break; }
                         byte[] ephPub = Base64.getDecoder().decode(pcs[0]);
                         byte[] iv = Base64.getDecoder().decode(pcs[1]);
                         byte[] ct = Base64.getDecoder().decode(pcs[2]);
@@ -139,11 +102,8 @@ public class ChatController {
                         byte[] shared = CryptoUtils.sharedStaticEphemeral(ephPub);
                         byte[] key = CryptoUtils.hkdf(shared, null, 32);
                         String plain = CryptoUtils.decryptAESGCM(ct, key, iv);
-
-                        appendChat(from + " >> " + plain);
-                    } catch (Exception e) {
-                        logError("MSG decryption failed from " + from, e);
-                    }
+                        appendChat(parts[1] + " >> " + plain);
+                    } catch (Exception e) { logError("MSG decryption failed from " + parts[1], e); }
                 }
                 break;
 
@@ -158,16 +118,12 @@ public class ChatController {
         if (text == null || text.trim().isEmpty()) return;
 
         String target = peersList.getSelectionModel().getSelectedItem();
-        if (target == null) {
-            appendChat("Peer를 선택하세요.");
-            return;
-        }
+        if (target == null) { appendChat("Peer를 선택하세요."); return; }
 
         try {
             byte[] peerStatic = CryptoUtils.getPeerStatic(target);
             if (peerStatic == null) {
-                String ourStaticB64 = Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic());
-                client.sendKeyExchange(ourStaticB64, target);
+                client.sendKeyExchange(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()), target);
                 appendChat("Requested static key from " + target);
                 return;
             }
@@ -185,9 +141,7 @@ public class ChatController {
             client.sendMessageToPeer(target, payload);
             appendChat("Me -> " + target + ": " + text);
             messageField.clear();
-        } catch (Exception e) {
-            logError("Send failed to " + target, e);
-        }
+        } catch (Exception e) { logError("Send failed to " + target, e); }
     }
 
     private void appendChat(String message) {

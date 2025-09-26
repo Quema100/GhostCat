@@ -1,7 +1,6 @@
 package me.duckmain.ghostcat.network;
 
 import me.duckmain.ghostcat.tls.SSLUtil;
-
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLServerSocket;
 import java.io.*;
@@ -23,6 +22,7 @@ public class ChatServer {
         if (enableBroadcast) startBroadcast();
     }
 
+    // 1. UDP 브로드캐스트
     private void startBroadcast() {
         scheduler = Executors.newSingleThreadScheduledExecutor();
         scheduler.scheduleAtFixedRate(() -> {
@@ -40,11 +40,10 @@ public class ChatServer {
     }
 
     public void stopBroadcast() {
-        if (scheduler != null) {
-            scheduler.shutdownNow();
-        }
+        if (scheduler != null) scheduler.shutdownNow();
     }
 
+    // 2. TLS 서버 시작
     public void start() {
         try {
             SSLServerSocketFactory ssf = SSLUtil.serverSSLContext().getServerSocketFactory();
@@ -65,6 +64,7 @@ public class ChatServer {
         }
     }
 
+    // 3. 서버 종료
     public void stopServer() {
         running = false;
         stopBroadcast();
@@ -72,8 +72,10 @@ public class ChatServer {
         for (Client c : clients.values()) {
             try { c.socket().close(); } catch (IOException ignored) {}
         }
+        clients.clear();
     }
 
+    // 4. 클라이언트 연결 처리
     private void handleSocket(Socket socket) {
         try (socket;
              BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -82,31 +84,24 @@ public class ChatServer {
             String line;
             while ((line = reader.readLine()) != null) {
                 if (line.startsWith("REGISTER|")) {
-                    String[] parts = line.split("\\|", 3);
-                    if (parts.length >= 2) {
-                        String nick = parts[1];
-                        clients.put(nick, new Client(nick, socket, writer));
-                        sendPeerList();
-                    }
+                    String nick = line.split("\\|")[1];
+                    clients.put(nick, new Client(nick, socket, writer));
+                    sendPeerList();
                     continue;
                 }
-
                 if (line.startsWith("KEY|") || line.startsWith("MSG|")) {
-                    String[] parts = line.split("\\|", 4);
-                    if (parts.length >= 3) {
-                        String to = parts[2];
-                        if ("*".equals(to)) {
-                            for (Client c : clients.values())
-                                if (!c.nick().equals(parts[1]))
-                                    c.sendLine(line);
-                        } else {
-                            Client dest = clients.get(to);
-                            if (dest != null) dest.sendLine(line);
-                        }
+                    String[] parts = line.split("\\|",4);
+                    String to = parts[2];
+                    if ("*".equals(to)) {
+                        for (Client c : clients.values())
+                            if (!c.nick().equals(parts[1]))
+                                c.sendLine(line);
+                    } else {
+                        Client dest = clients.get(to);
+                        if (dest != null) dest.sendLine(line);
                     }
                 }
             }
-
         } catch (IOException e) {
             System.err.println("Client socket error: " + e.getMessage());
         } finally {
@@ -114,21 +109,26 @@ public class ChatServer {
         }
     }
 
-    /** 소켓 종료 후 안전하게 클라이언트 제거 */
+    // 5. 클라이언트 제거 + 계승 로직
     private void removeSocket(Socket socket) {
         for (Iterator<Client> it = clients.values().iterator(); it.hasNext(); ) {
             Client c = it.next();
             Socket s = c.socket();
             if (s.isClosed() || s.equals(socket)) {
-                try {
-                    if (!s.isClosed()) s.close();
-                } catch (IOException ignored) {}
+                try { if (!s.isClosed()) s.close(); } catch (IOException ignored) {}
                 it.remove();
             }
         }
         sendPeerList();
+
+        // 마지막 클라이언트가 있으면 서버 호스트 계승
+        if (clients.isEmpty()) {
+            System.out.println("No clients connected, shutting down.");
+            stopServer();
+        }
     }
 
+    // 6. 피어 리스트 전송
     private void sendPeerList() {
         StringBuilder sb = new StringBuilder();
         for (String n : clients.keySet()) {
@@ -139,11 +139,12 @@ public class ChatServer {
         for (Client c : clients.values()) c.sendLine(line);
     }
 
+    // 클라이언트 레코드
     private record Client(String nick, Socket socket, BufferedWriter writer) {
         synchronized void sendLine(String line) {
             try {
                 writer.write(line);
-                writer.write(' ');
+                writer.newLine();
                 writer.flush();
             } catch (IOException e) {
                 System.err.println("Send error to " + nick + ": " + e.getMessage());
