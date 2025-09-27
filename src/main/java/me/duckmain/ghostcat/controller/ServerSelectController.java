@@ -10,13 +10,16 @@ import me.duckmain.ghostcat.network.ChatServer;
 import me.duckmain.ghostcat.crypto.CryptoUtils;
 import me.duckmain.ghostcat.tls.SSLUtil;
 
-import java.util.logging.Logger;
-import java.util.logging.Level;
 import java.io.IOException;
+import java.net.*;
+import java.nio.charset.StandardCharsets;
+import java.util.Enumeration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class ServerSelectController {
 
-    @FXML private RadioButton autoRadio;
+    // @FXML private RadioButton autoRadio;
     @FXML private RadioButton localRadio;
     @FXML private RadioButton remoteRadio;
     @FXML private TextField hostField;
@@ -33,18 +36,17 @@ public class ServerSelectController {
     @FXML
     public void initialize() {
         ToggleGroup modeGroup = new ToggleGroup();
-
-        autoRadio.setToggleGroup(modeGroup);
+        // autoRadio.setToggleGroup(modeGroup);
         localRadio.setToggleGroup(modeGroup);
         remoteRadio.setToggleGroup(modeGroup);
 
-        autoRadio.setSelected(true); // 필요시 기본 선택
+        // autoRadio.setSelected(true); // 기본 선택
     }
 
     @FXML
     protected void onBackClick() {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("../LoginView.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/me/duckmain/ghostcat/LoginView.fxml"));
             Scene scene = new Scene(loader.load(), 480, 260);
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
@@ -63,35 +65,75 @@ public class ServerSelectController {
             logger.log(Level.SEVERE, "Crypto init fail", err);
             return;
         }
-
         if (localRadio.isSelected()) {
-            // 로컬 TLS 서버 시작 및 접속
             new Thread(() -> {
                 try {
                     SSLUtil.ensureServerKeystore();
-                    ChatServer server = new ChatServer(7777, true);
 
-                    // 서버 시작 스레드
-                    Thread serverThread = new Thread(() -> {
-                        try {
-                            server.start();
-                        } catch (Exception e) {
-                            logger.log(Level.SEVERE, "local server start fail", e);
+                    // 1. 기존 LAN 서버 탐색
+                    InetSocketAddress serverAddr = discoverLocalServer(); // 3초 탐색
+                    if (serverAddr == null) {
+                        // 2. 서버 없으면 새로 생성
+                        String lanIp = getLocalNetworkIp();
+                        if (lanIp == null) {
+                          Platform.runLater(() -> infoLabel.setText("LAN IP를 찾을 수 없습니다."));
+                           return;
                         }
-                    });
-                    serverThread.setDaemon(true);
-                    serverThread.start();
 
-                    // 서버 시작 확인 후 채팅 화면으로 이동
-                    Thread.sleep(500); // 최소 대기
-                    Platform.runLater(() -> moveToChat(nickname, "127.0.0.1", 7777));
-                } catch (Exception err) {
-                    Platform.runLater(() -> infoLabel.setText("local server start fail: " + err.getMessage()));
-                    logger.log(Level.SEVERE, "local server start fail", err);
+                       System.out.println(lanIp);
+                        ChatServer server = new ChatServer(0, true);
+                        Thread serverThread = new Thread(server::start);
+                        serverThread.setDaemon(true);
+                        serverThread.start();
+                        int assignedPort = server.waitForPort();
+                        serverAddr = new InetSocketAddress(getLocalNetworkIp(), assignedPort);
+                        System.out.println("Local server created at " + serverAddr);
+                    } else {
+                        System.out.println("Found existing server at " + serverAddr);
+                    }
+
+                    InetSocketAddress finalServerAddress = serverAddr;
+                    Platform.runLater(() ->
+                            moveToChat(nickname, finalServerAddress.getHostString(), finalServerAddress.getPort()));
+                } catch (Exception e) {
+                    Platform.runLater(() ->
+                            infoLabel.setText("Local server connection fail: " + e.getMessage()));
+                    logger.log(Level.SEVERE, "Local server connection fail", e);
                 }
             }).start();
             return;
         }
+//        if (localRadio.isSelected()) {
+//            new Thread(() -> {
+//                try {
+//                    SSLUtil.ensureServerKeystore();
+//
+//                    String lanIp = getLocalNetworkIp();
+//                    if (lanIp == null) {
+//                        Platform.runLater(() -> infoLabel.setText("LAN IP를 찾을 수 없습니다."));
+//                        return;
+//                    }
+//                    System.out.println(lanIp);
+//
+//                    // 포트 0 → OS가 자동 할당
+//                    ChatServer server = new ChatServer(0, true);
+//
+//                    // 서버 시작 스레드
+//                    Thread serverThread = new Thread(server::start);
+//                    serverThread.setDaemon(true);
+//                    serverThread.start();
+//
+//                    // 포트가 준비될 때까지 대기
+//                    int assignedPort = server.waitForPort();
+//
+//                    Platform.runLater(() -> moveToChat(nickname, lanIp, assignedPort));
+//                } catch (Exception err) {
+//                    Platform.runLater(() -> infoLabel.setText("local server start fail: " + err.getMessage()));
+//                    logger.log(Level.SEVERE, "local server start fail", err);
+//                }
+//            }).start();
+//            return;
+//        }
 
         if (remoteRadio.isSelected()) {
             String host = hostField.getText().trim();
@@ -111,16 +153,20 @@ public class ServerSelectController {
             }
 
             moveToChat(nickname, host, port);
-            return;
         }
 
-        // AUTO 모드
-        moveToChat(nickname, "AUTO", 7777);
+        // AUTO 모드 (LAN IP + 자동 포트)
+//        try {
+//            String lanIp = getLocalNetworkIp();
+//            moveToChat(nickname, lanIp, 0);
+//        } catch (Exception e) {
+//            infoLabel.setText("AUTO 모드 실패: " + e.getMessage());
+//        }
     }
 
     private void moveToChat(String nick, String host, int port) {
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("../ChatView.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/me/duckmain/ghostcat/ChatView.fxml"));
             Scene scene = new Scene(loader.load(), 900, 640);
             me.duckmain.ghostcat.controller.ChatController ctrl = loader.getController();
             ctrl.initConnection(nick, host, port);
@@ -131,5 +177,56 @@ public class ServerSelectController {
             infoLabel.setText("Chat view load fail: " + err.getMessage());
             logger.log(Level.SEVERE, "Chat view load fail", err);
         }
+    }
+
+    /**
+     * 127.0.0.1이 아닌 LAN IPv4 주소 반환
+     */
+    private String getLocalNetworkIp() {
+        try {
+            Enumeration<NetworkInterface> interfaces = NetworkInterface.getNetworkInterfaces();
+            while (interfaces.hasMoreElements()) {
+                NetworkInterface networkinterface = interfaces.nextElement();
+                if (networkinterface.isLoopback() || !networkinterface.isUp()) continue;
+
+                Enumeration<InetAddress> addresses = networkinterface.getInetAddresses();
+                while (addresses.hasMoreElements()) {
+                    InetAddress address = addresses.nextElement();
+                    if (address instanceof Inet4Address && !address.isLoopbackAddress()) {
+                        return address.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            logger.log(Level.SEVERE, "LAN IP search fail", e);
+        }
+        return null;
+    }
+
+    // UDP 브로드캐스트로 LAN 서버 탐색
+    private InetSocketAddress discoverLocalServer() {
+        try (DatagramSocket socket = new DatagramSocket(9999)) {
+            socket.setBroadcast(true);
+            socket.setSoTimeout(10000);
+            byte[] buf = new byte[1024];
+            DatagramPacket packet = new DatagramPacket(buf, buf.length);
+
+            long endTime = System.currentTimeMillis() + 10000;
+            while (System.currentTimeMillis() < endTime) {
+                try {
+                    socket.receive(packet);
+                    String msg = new String(packet.getData(), 0, packet.getLength(), StandardCharsets.UTF_8);
+                    if (msg.startsWith("E2EE-SERVER:")) {
+                        String[] parts = msg.split(":");
+                        String ip = parts[1];
+                        int port = Integer.parseInt(parts[2]);
+                        return new InetSocketAddress(ip, port);
+                    }
+                } catch (SocketTimeoutException ignored) {}
+            }
+        } catch (IOException e) {
+            logger.log(Level.SEVERE, "Server discovery fail", e);
+        }
+        return null;
     }
 }

@@ -1,34 +1,39 @@
 package me.duckmain.ghostcat.network;
 
 import me.duckmain.ghostcat.tls.SSLUtil;
+
 import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLServerSocket;
 import java.io.*;
 import java.net.*;
 import java.nio.charset.StandardCharsets;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
+
 public class ChatServer {
     private final int port;
-    private final ConcurrentHashMap<String, Client> clients = new ConcurrentHashMap<>();
+    private final Map<String, Client> clients = new ConcurrentHashMap<>();
     private final ExecutorService pool = Executors.newCachedThreadPool();
-    private ScheduledExecutorService scheduler;
+    private ScheduledExecutorService broadcastScheduler;
     private volatile boolean running = true;
+    private volatile SSLServerSocket serverSocket;
+    private final CountDownLatch portReadyLatch = new CountDownLatch(1);
 
     public ChatServer(int port, boolean enableBroadcast) {
         this.port = port;
         if (enableBroadcast) startBroadcast();
     }
 
-    // 1. UDP 브로드캐스트
+    // LAN 브로드캐스트
     private void startBroadcast() {
-        scheduler = Executors.newSingleThreadScheduledExecutor();
-        scheduler.scheduleAtFixedRate(() -> {
+        broadcastScheduler = Executors.newSingleThreadScheduledExecutor();
+        broadcastScheduler.scheduleAtFixedRate(() -> {
             try (DatagramSocket ds = new DatagramSocket()) {
                 ds.setBroadcast(true);
-                String msg = "E2EE-SERVER:" + InetAddress.getLocalHost().getHostAddress() + ":" + port;
+                String msg = "E2EE-SERVER:" + InetAddress.getLocalHost().getHostAddress() + ":" + getBoundPort();
                 byte[] data = msg.getBytes(StandardCharsets.UTF_8);
                 DatagramPacket packet = new DatagramPacket(data, data.length,
                         InetAddress.getByName("255.255.255.255"), 9999);
@@ -36,24 +41,25 @@ public class ChatServer {
             } catch (IOException e) {
                 System.err.println("Broadcast error: " + e.getMessage());
             }
-        }, 0, 5, TimeUnit.SECONDS);
+        }, 0, 3, TimeUnit.SECONDS);
     }
 
     public void stopBroadcast() {
-        if (scheduler != null) scheduler.shutdownNow();
+        if (broadcastScheduler != null) broadcastScheduler.shutdownNow();
     }
 
-    // 2. TLS 서버 시작
+    // 서버 시작
     public void start() {
         try {
             SSLServerSocketFactory ssf = SSLUtil.serverSSLContext().getServerSocketFactory();
-            try (SSLServerSocket serverSocket = (SSLServerSocket) ssf.createServerSocket(port)) {
-                serverSocket.setReuseAddress(true);
+            serverSocket = (SSLServerSocket) ssf.createServerSocket(port);
+            serverSocket.setReuseAddress(true);
+            portReadyLatch.countDown();
+            System.out.println("Server started on port " + getBoundPort());
 
-                while (running) {
-                    Socket clientSocket = serverSocket.accept();
-                    pool.submit(() -> handleSocket(clientSocket));
-                }
+            while (running) {
+                Socket clientSocket = serverSocket.accept();
+                pool.submit(() -> handleSocket(clientSocket));
             }
         } catch (IOException e) {
             System.err.println("Server start failed: " + e.getMessage());
@@ -64,18 +70,28 @@ public class ChatServer {
         }
     }
 
-    // 3. 서버 종료
     public void stopServer() {
         running = false;
         stopBroadcast();
         pool.shutdownNow();
+        try {
+            if (serverSocket != null && !serverSocket.isClosed()) serverSocket.close();
+        } catch (IOException ignored) {}
         for (Client c : clients.values()) {
             try { c.socket().close(); } catch (IOException ignored) {}
         }
         clients.clear();
     }
 
-    // 4. 클라이언트 연결 처리
+    public int waitForPort() throws InterruptedException {
+        portReadyLatch.await();
+        return getBoundPort();
+    }
+
+    public int getBoundPort() {
+        return serverSocket != null ? serverSocket.getLocalPort() : -1;
+    }
+
     private void handleSocket(Socket socket) {
         try (socket;
              BufferedReader reader = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -109,7 +125,6 @@ public class ChatServer {
         }
     }
 
-    // 5. 클라이언트 제거 + 계승 로직
     private void removeSocket(Socket socket) {
         for (Iterator<Client> it = clients.values().iterator(); it.hasNext(); ) {
             Client c = it.next();
@@ -121,14 +136,12 @@ public class ChatServer {
         }
         sendPeerList();
 
-        // 마지막 클라이언트가 있으면 서버 호스트 계승
         if (clients.isEmpty()) {
             System.out.println("No clients connected, shutting down.");
             stopServer();
         }
     }
 
-    // 6. 피어 리스트 전송
     private void sendPeerList() {
         StringBuilder sb = new StringBuilder();
         for (String n : clients.keySet()) {
@@ -136,10 +149,9 @@ public class ChatServer {
             sb.append(n);
         }
         String line = "PEERS|" + sb;
-        for (Client c : clients.values()) c.sendLine(line);
+        for (Client client : clients.values()) client.sendLine(line);
     }
 
-    // 클라이언트 레코드
     private record Client(String nick, Socket socket, BufferedWriter writer) {
         synchronized void sendLine(String line) {
             try {

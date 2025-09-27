@@ -22,7 +22,7 @@ public class LoginController {
             return;
         }
         try {
-            FXMLLoader loader = new FXMLLoader(getClass().getResource("../ServerSelectView.fxml"));
+            FXMLLoader loader = new FXMLLoader(getClass().getResource("/me/duckmain/ghostcat/ServerSelectView.fxml"));
             Scene scene = new Scene(loader.load(), 640, 320);
             ServerSelectController ctrl = loader.getController();
             ctrl.setNickname(nick);

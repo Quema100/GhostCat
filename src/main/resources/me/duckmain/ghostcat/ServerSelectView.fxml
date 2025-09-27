@@ -2,35 +2,30 @@
 <?import javafx.geometry.Insets?>
 <?import javafx.scene.control.*?>
 <?import javafx.scene.layout.*?>
-<VBox spacing="12" xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="me.duckmain.ghostcat.controller.ServerSelectController">
+<VBox spacing="12" xmlns:fx="http://javafx.com/fxml/1" fx:controller="me.duckmain.ghostcat.controller.ServerSelectController">
     <padding>
         <Insets top="12" right="12" bottom="12" left="12"/>
     </padding>
     <Label text="서버 선택" style="-fx-font-size:14px; -fx-font-weight:bold;"/>
-
     <HBox spacing="12" alignment="CENTER_LEFT">
         <VBox spacing="6">
-            <RadioButton fx:id="autoRadio" text="자동(로컬 탐색 후 localhost 폴백)" />
-            <RadioButton fx:id="localRadio" text="로컬 서버 (LAN)" />
-            <RadioButton fx:id="remoteRadio" text="외부 서버 (직접 입력)" />
-        </VBox>
+        <RadioButton fx:id="localRadio" text="로컬 서버 (포트 자동할당)" />
+        <RadioButton fx:id="remoteRadio" text="외부 서버 (직접 입력)" />
+    </VBox>
         <VBox spacing="6">
             <HBox spacing="6">
-                <Label text="서버 IP/호스트:" />
-                <TextField fx:id="hostField" promptText="예: 203.0.113.1 or example.com" prefWidth="240" />
-            </HBox>
-            <HBox spacing="6">
-                <Label text="포트:" />
-                <TextField fx:id="portField" promptText="7777" prefWidth="80" />
-            </HBox>
-        </VBox>
+        <Label text="서버 IP/호스트:" />
+        <TextField fx:id="hostField" promptText="예: 203.0.113.1 or example.com" prefWidth="240" />
     </HBox>
-
+        <HBox spacing="6">
+            <Label text="포트:" />
+            <TextField fx:id="portField" promptText="자동" prefWidth="80" disable="true" />
+        </HBox>
+    </VBox>
+    </HBox>
     <HBox spacing="8">
         <Button text="Connect" onAction="#onConnectClick" />
-        <Button text="Back" onAction="#onBackClick" />
+    <Button text="Back" onAction="#onBackClick" />
     </HBox>
-
     <Label fx:id="infoLabel" />
 </VBox>
