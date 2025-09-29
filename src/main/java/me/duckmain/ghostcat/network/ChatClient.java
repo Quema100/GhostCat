@@ -21,32 +21,6 @@ public class ChatClient {
         this.onLine = onLine;
     }
 
-    // AUTO discovery -> uses trustAllFactory for the connection it establishes
-    public void autoDiscoverAndConnect(int defaultPort) throws Exception {
-        // create socket factory that trusts all certs for this client (POC)
-        SSLSocketFactory trustFactory = SSLUtil.trustAllFactory();
-
-        try (DatagramSocket listen = new DatagramSocket(9999)) {
-            listen.setSoTimeout(2500);
-            byte[] buf = new byte[512];
-            DatagramPacket p = new DatagramPacket(buf, buf.length);
-            try {
-                listen.receive(p);
-                String s = new String(p.getData(), 0, p.getLength());
-                if (s.startsWith("E2EE-SERVER:")) {
-                    String[] sp = s.split(":");
-                    // sp[1]=ip, sp[2]=port
-                    connectToTLSWithFactory(trustFactory, sp[1], Integer.parseInt(sp[2]));
-                    return;
-                }
-            } catch (SocketTimeoutException ignored) {
-                // timed out -> fallback to localhost
-            }
-        }
-
-        connectToTLSWithFactory(trustFactory, "127.0.0.1", defaultPort);
-    }
-
     // Public connect that uses default factory (kept for compatibility) - but we will prefer explicit factory
     public void connectToTLS(String host, int port) throws Exception {
         SSLSocketFactory trustFactory = SSLUtil.trustAllFactory();

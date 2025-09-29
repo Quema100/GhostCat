@@ -41,7 +41,7 @@ public class ChatServer {
             } catch (IOException e) {
                 System.err.println("Broadcast error: " + e.getMessage());
             }
-        }, 0, 3, TimeUnit.SECONDS);
+        }, 0, 1, TimeUnit.SECONDS);
     }
 
     public void stopBroadcast() {

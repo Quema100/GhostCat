@@ -103,37 +103,6 @@ public class ServerSelectController {
             }).start();
             return;
         }
-//        if (localRadio.isSelected()) {
-//            new Thread(() -> {
-//                try {
-//                    SSLUtil.ensureServerKeystore();
-//
-//                    String lanIp = getLocalNetworkIp();
-//                    if (lanIp == null) {
-//                        Platform.runLater(() -> infoLabel.setText("LAN IP를 찾을 수 없습니다."));
-//                        return;
-//                    }
-//                    System.out.println(lanIp);
-//
-//                    // 포트 0 → OS가 자동 할당
-//                    ChatServer server = new ChatServer(0, true);
-//
-//                    // 서버 시작 스레드
-//                    Thread serverThread = new Thread(server::start);
-//                    serverThread.setDaemon(true);
-//                    serverThread.start();
-//
-//                    // 포트가 준비될 때까지 대기
-//                    int assignedPort = server.waitForPort();
-//
-//                    Platform.runLater(() -> moveToChat(nickname, lanIp, assignedPort));
-//                } catch (Exception err) {
-//                    Platform.runLater(() -> infoLabel.setText("local server start fail: " + err.getMessage()));
-//                    logger.log(Level.SEVERE, "local server start fail", err);
-//                }
-//            }).start();
-//            return;
-//        }
 
         if (remoteRadio.isSelected()) {
             String host = hostField.getText().trim();
@@ -155,13 +124,6 @@ public class ServerSelectController {
             moveToChat(nickname, host, port);
         }
 
-        // AUTO 모드 (LAN IP + 자동 포트)
-//        try {
-//            String lanIp = getLocalNetworkIp();
-//            moveToChat(nickname, lanIp, 0);
-//        } catch (Exception e) {
-//            infoLabel.setText("AUTO 모드 실패: " + e.getMessage());
-//        }
     }
 
     private void moveToChat(String nick, String host, int port) {
@@ -207,11 +169,11 @@ public class ServerSelectController {
     private InetSocketAddress discoverLocalServer() {
         try (DatagramSocket socket = new DatagramSocket(9999)) {
             socket.setBroadcast(true);
-            socket.setSoTimeout(10000);
+            socket.setSoTimeout(2000);
             byte[] buf = new byte[1024];
             DatagramPacket packet = new DatagramPacket(buf, buf.length);
 
-            long endTime = System.currentTimeMillis() + 10000;
+            long endTime = System.currentTimeMillis() + 2000;
             while (System.currentTimeMillis() < endTime) {
                 try {
                     socket.receive(packet);

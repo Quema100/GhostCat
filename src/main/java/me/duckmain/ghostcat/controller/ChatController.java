@@ -47,11 +47,7 @@ public class ChatController {
 
         new Thread(() -> {
             try {
-                if ("AUTO".equals(host)) {
-                    client.autoDiscoverAndConnect(port); // auto 경로도 내부에서 trustFactory 사용
-                } else {
-                    client.connectToTLS(host, port); // 내부에서 trustFactory 사용
-                }
+                client.connectToTLS(host, port); // 내부에서 trustFactory 사용
                 client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
                 Platform.runLater(() -> statusLabel.setText("Connected as " + nick));
             } catch (Exception e) {
