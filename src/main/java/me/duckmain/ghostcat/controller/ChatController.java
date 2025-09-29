@@ -80,9 +80,27 @@ public class ChatController {
 
             case "KEY":
                 if (parts.length >= 4 && parts[2].equals(nick)) {
-                    try { CryptoUtils.storePeerStatic(parts[1], Base64.getDecoder().decode(parts[3]));
-                        appendChat("Stored static key for " + parts[1]);
-                    } catch (Exception e) { logError("KEY processing failed from " + parts[1], e); }
+                    try {
+                        String fromNick = parts[1];
+                        byte[] theirStaticKey = Base64.getDecoder().decode(parts[3]);
+
+                        // 중요: 상대방의 키를 저장하기 *전에* 내가 이미 키를 가지고 있는지 확인합니다.
+                        // 키가 없다면 첫 요청이므로 응답해야 합니다.
+                        boolean isFirstContact = (CryptoUtils.getPeerStatic(fromNick) == null);
+
+                        // 첫 요청일 경우에만 내 키를 응답으로 보냅니다.
+                        if (isFirstContact) {
+                            appendChat("Replying with my key to " + fromNick);
+                            String myStaticKeyB64 = Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic());
+                            client.sendKeyExchange(myStaticKeyB64, fromNick);
+                            // 상대방의 키를 저장(또는 최신 키로 업데이트)합니다.
+                            CryptoUtils.storePeerStatic(fromNick, theirStaticKey);
+                            appendChat("Stored static key for " + fromNick);
+                        }
+
+                    } catch (Exception e) {
+                        logError("KEY processing failed from " + parts[1], e);
+                    }
                 }
                 break;
 
