@@ -7,8 +7,7 @@ import me.duckmain.ghostcat.crypto.CryptoUtils;
 import me.duckmain.ghostcat.network.ChatClient;
 
 import java.security.KeyPair;
-import java.util.Base64;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import java.util.logging.Level;
@@ -25,6 +24,7 @@ public class ChatController {
 
     private ChatClient client;
     private String nick;
+    private final Set<String> pendingKeyRequests = Collections.synchronizedSet(new HashSet<>());
 
     @FXML
     public void initialize() {
@@ -86,16 +86,17 @@ public class ChatController {
 
                         // 중요: 상대방의 키를 저장하기 *전에* 내가 이미 키를 가지고 있는지 확인합니다.
                         // 키가 없다면 첫 요청이므로 응답해야 합니다.
-                        boolean isFirstContact = (CryptoUtils.getPeerStatic(fromNick) == null);
+                        boolean isReplyToMyRequest = pendingKeyRequests.remove(fromNick);
+
+                        // 상대방의 키를 저장(또는 최신 키로 업데이트)합니다.
+                        CryptoUtils.storePeerStatic(fromNick, theirStaticKey);
+                        appendChat("Stored/Updated static key for " + fromNick);
 
                         // 첫 요청일 경우에만 내 키를 응답으로 보냅니다.
-                        if (isFirstContact) {
+                        if (!isReplyToMyRequest) {
                             appendChat("Replying with my key to " + fromNick);
                             String myStaticKeyB64 = Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic());
                             client.sendKeyExchange(myStaticKeyB64, fromNick);
-                            // 상대방의 키를 저장(또는 최신 키로 업데이트)합니다.
-                            CryptoUtils.storePeerStatic(fromNick, theirStaticKey);
-                            appendChat("Stored static key for " + fromNick);
                         }
 
                     } catch (Exception e) {
@@ -137,6 +138,7 @@ public class ChatController {
         try {
             byte[] peerStatic = CryptoUtils.getPeerStatic(target);
             if (peerStatic == null) {
+                pendingKeyRequests.add(target);
                 client.sendKeyExchange(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()), target);
                 appendChat("Requested static key from " + target);
                 return;
