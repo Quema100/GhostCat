@@ -36,11 +36,8 @@ public class ServerSelectController {
     @FXML
     public void initialize() {
         ToggleGroup modeGroup = new ToggleGroup();
-        // autoRadio.setToggleGroup(modeGroup);
         localRadio.setToggleGroup(modeGroup);
         remoteRadio.setToggleGroup(modeGroup);
-
-        // autoRadio.setSelected(true); // 기본 선택
     }
 
     @FXML
@@ -125,7 +122,7 @@ public class ServerSelectController {
         }
 
     }
-
+    // TODO: 종료 버튼 눌러도 완벽종료 안되는 문제 해결 필요
     private void moveToChat(String nick, String host, int port) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/me/duckmain/ghostcat/ChatView.fxml"));

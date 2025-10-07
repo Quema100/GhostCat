@@ -12,7 +12,7 @@ import java.util.concurrent.*;
 import java.util.Iterator;
 import java.util.concurrent.ConcurrentHashMap;
 
-
+// TODO: P2P 계승 코드 필요. Tlqkf w qudtls같은 AI 제대로 못만드나
 public class ChatServer {
     private final int port;
     private final Map<String, Client> clients = new ConcurrentHashMap<>();
