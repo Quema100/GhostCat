@@ -20,6 +20,7 @@
             <Label fx:id="statusLabel" />
             <Label text="Peers:" />
             <ListView fx:id="peersList" prefWidth="200" prefHeight="120" />
+            <!-- Refresh 부분을 제거할까 말까.. -->
             <Button text="Refresh Peers" onAction="#onRefreshPeers" />
         </HBox>
     </top>

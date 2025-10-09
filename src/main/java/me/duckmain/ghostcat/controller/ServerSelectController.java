@@ -122,7 +122,7 @@ public class ServerSelectController {
         }
 
     }
-    // TODO: 종료 버튼 눌러도 완벽종료 안되는 문제 해결 필요
+
     private void moveToChat(String nick, String host, int port) {
         try {
             FXMLLoader loader = new FXMLLoader(getClass().getResource("/me/duckmain/ghostcat/ChatView.fxml"));
@@ -132,6 +132,10 @@ public class ServerSelectController {
 
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
+
+            stage.setOnCloseRequest(_ -> {
+                ctrl.closeConnection();
+            });
         } catch (IOException err) {
             infoLabel.setText("Chat view load fail: " + err.getMessage());
             logger.log(Level.SEVERE, "Chat view load fail", err);

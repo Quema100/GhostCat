@@ -40,8 +40,13 @@ public class ChatController {
         this.nick = nickname;
         appendChat("Nickname: " + nick);
 
-        try { if (CryptoUtils.getStaticPublic() == null) CryptoUtils.generateStaticKeypair(); }
-        catch (Exception e) { logError("Static keypair generation failed", e); return; }
+        try {
+            if (CryptoUtils.getStaticPublic() == null)
+                CryptoUtils.generateStaticKeypair();
+        } catch (Exception e) {
+            logError("Static keypair generation failed", e);
+            return;
+        }
 
         client = new ChatClient(nick, this::onIncomingLine);
 
@@ -56,87 +61,116 @@ public class ChatController {
             }
         }).start();
     }
-
+    
+    // TODO: PEER Refresh시 Stream 닫히는 문제 해결 필요 [자동 Refresh됨 그래서 필요한가 의문임]
     @FXML
     protected void onRefreshPeers() {
-        try { client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic())); }
-        catch (Exception e) { logError("Refresh peers failed", e); }
+        if (client == null) return;
+        try {
+            client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
+            appendChat("Requested peer list update.");
+        } catch (Exception e) {
+            logError("Refresh peers failed", e);
+        }
     }
 
     private void onIncomingLine(String line) {
-        if (line == null) return;
+        if (line == null || line.isBlank()) return;
         String[] parts = line.split("\\|", 4);
         String type = parts.length > 0 ? parts[0] : "";
 
         switch (type) {
-            case "PEERS":
-                if (parts.length >= 2) {
-                    List<String> peers = Stream.of(parts[1].split(","))
-                            .filter(s -> !s.isBlank() && !s.equals(nick))
-                            .collect(Collectors.toList());
-                    Platform.runLater(() -> peersList.getItems().setAll(peers));
-                }
-                break;
+            case "PEERS" -> handlePeers(parts);
+            case "KEY" -> handleKey(parts);
+            case "MSG" -> handleMessage(parts);
+            default -> appendChat("[RAW] " + line);
+        }
+    }
 
-            case "KEY":
-                if (parts.length >= 4 && parts[2].equals(nick)) {
-                    try {
-                        String fromNick = parts[1];
-                        byte[] theirStaticKey = Base64.getDecoder().decode(parts[3]);
+    private void handlePeers(String[] parts) {
+        if (parts.length < 2) return;
+        List<String> peers = Stream.of(parts[1].split(","))
+                .filter(s -> !s.isBlank() && !s.equals(nick))
+                .collect(Collectors.toList());
+        Platform.runLater(() -> peersList.getItems().setAll(peers));
+    }
 
-                        // 중요: 상대방의 키를 저장하기 *전에* 내가 이미 키를 가지고 있는지 확인합니다.
-                        // 키가 없다면 첫 요청이므로 응답해야 합니다.
-                        boolean isReplyToMyRequest = pendingKeyRequests.remove(fromNick);
+    private void handleKey(String[] parts) {
+        if (parts.length < 4) return;
+        String fromNick = parts[1];
+        String toNick = parts[2];
+        if (!toNick.equals(nick)) return;
+        try {
 
-                        // 상대방의 키를 저장(또는 최신 키로 업데이트)합니다.
-                        CryptoUtils.storePeerStatic(fromNick, theirStaticKey);
-                        appendChat("Stored/Updated static key for " + fromNick);
+            byte[] theirStaticKey = Base64.getDecoder().decode(parts[3]);
 
-                        // 첫 요청일 경우에만 내 키를 응답으로 보냅니다.
-                        if (!isReplyToMyRequest) {
-                            appendChat("Replying with my key to " + fromNick);
-                            String myStaticKeyB64 = Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic());
-                            client.sendKeyExchange(myStaticKeyB64, fromNick);
-                        }
+            // 중요: 상대방의 키를 저장하기 *전에* 내가 이미 키를 가지고 있는지 확인합니다.
+            // 키가 없다면 첫 요청이므로 응답해야 합니다.
+            boolean isReplyToMyRequest = pendingKeyRequests.remove(fromNick);
 
-                    } catch (Exception e) {
-                        logError("KEY processing failed from " + parts[1], e);
-                    }
-                }
-                break;
+            // 상대방의 키를 저장(또는 최신 키로 업데이트)합니다.
+            CryptoUtils.storePeerStatic(fromNick, theirStaticKey);
+            appendChat("Stored/Updated static key for " + fromNick);
 
-            case "MSG":
-                if (parts.length >= 4 && (parts[2].equals(nick) || parts[2].equals("*"))) {
-                    try {
-                        String[] pcs = parts[3].split(":", 3);
-                        if (pcs.length != 3) { appendChat("Invalid MSG payload from " + parts[1]); break; }
-                        byte[] ephPub = Base64.getDecoder().decode(pcs[0]);
-                        byte[] iv = Base64.getDecoder().decode(pcs[1]);
-                        byte[] ct = Base64.getDecoder().decode(pcs[2]);
+            // 첫 요청일 경우에만 내 키를 응답으로 보냅니다.
+            if (!isReplyToMyRequest) {
+                String myStaticKeyB64 = Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic());
+                client.sendKeyExchange(myStaticKeyB64, fromNick);
+                appendChat("Replying with my key to " + fromNick);
+            }
 
-                        byte[] shared = CryptoUtils.sharedStaticEphemeral(ephPub);
-                        byte[] key = CryptoUtils.hkdf(shared, null, 32);
-                        String plain = CryptoUtils.decryptAESGCM(ct, key, iv);
-                        appendChat(parts[1] + " >> " + plain);
-                    } catch (Exception e) { logError("MSG decryption failed from " + parts[1], e); }
-                }
-                break;
+        } catch (Exception e) {
+            logError("KEY processing failed from " + parts[1], e);
+        }
+    }
 
-            default:
-                appendChat("RAW: " + line);
+    private void handleMessage(String[] parts) {
+        if (parts.length < 4) return;
+        String from = parts[1];
+        String to = parts[2];
+        String payload = parts[3];
+
+        if (!(to.equals(nick) || to.equals("*"))) return;
+
+        try {
+            String[] pcs = payload.split(":", 3);
+            if (pcs.length != 3) {
+                appendChat("Invalid MSG payload from " + from);
+                return;
+            }
+
+            byte[] ephPub = Base64.getDecoder().decode(pcs[0]);
+            byte[] iv = Base64.getDecoder().decode(pcs[1]);
+            byte[] ct = Base64.getDecoder().decode(pcs[2]);
+
+            byte[] shared = CryptoUtils.sharedStaticEphemeral(ephPub);
+            byte[] key = CryptoUtils.hkdf(shared, null, 32);
+            String plain = CryptoUtils.decryptAESGCM(ct, key, iv);
+
+            appendChat(from + " >> " + plain);
+        } catch (Exception e) {
+            logError("Message decryption failed from " + from, e);
         }
     }
 
     @FXML
     protected void onSendClick() {
+        if (client == null) {
+            appendChat("Not connected.");
+            return;
+        }
         String text = messageField.getText();
         if (text == null || text.trim().isEmpty()) return;
 
         String target = peersList.getSelectionModel().getSelectedItem();
-        if (target == null) { appendChat("Peer를 선택하세요."); return; }
+        if (target == null) {
+            appendChat("Select a peer first."); return;
+        }
 
         try {
             byte[] peerStatic = CryptoUtils.getPeerStatic(target);
+
+            // 키가 없으면 먼저 요청
             if (peerStatic == null) {
                 pendingKeyRequests.add(target);
                 client.sendKeyExchange(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()), target);
@@ -157,7 +191,23 @@ public class ChatController {
             client.sendMessageToPeer(target, payload);
             appendChat("Me -> " + target + ": " + text);
             messageField.clear();
-        } catch (Exception e) { logError("Send failed to " + target, e); }
+
+        } catch (Exception e) {
+            logError("Send failed to " + target, e);
+        }
+    }
+
+    public void closeConnection() {
+        try {
+            if (client != null) {
+                client.closeConnection();
+                client = null;
+            }
+        } catch (Exception e) {
+            logger.log(Level.WARNING, "chatClient close error", e);
+        }
+        Platform.runLater(() -> statusLabel.setText("Disconnected"));
+        appendChat("Connection closed.");
     }
 
     private void appendChat(String message) {
