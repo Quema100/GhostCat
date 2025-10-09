@@ -236,6 +236,11 @@ public class ChatServer {
             }
         }
         sendPeerList();
+
+        if (clients.isEmpty()) {
+            System.out.println("No clients connected, shutting down.");
+            stopServer();
+        }
     }
 
     private void sendPeerList() {
