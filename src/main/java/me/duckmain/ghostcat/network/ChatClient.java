@@ -85,7 +85,18 @@ public class ChatClient {
 
 
     public void closeConnection() {
+        if (!running.getAndSet(false)) return;
+
         running.set(false);
+
+        System.out.println("close Connection");
+
+        try {
+            if (socket != null && !socket.isClosed()) {
+                try { socket.shutdownInput(); } catch (IOException ignored) {}
+                try { socket.shutdownOutput(); } catch (IOException ignored) {}
+            }
+        } catch (Exception ignored) {}
 
         try { if (socket != null) socket.close(); } catch (IOException ignored) {}
         try { if (in != null) in.close(); } catch (IOException ignored) {}
@@ -101,6 +112,11 @@ public class ChatClient {
 
     private void cleanup() {
         if (!running.getAndSet(false)) return;
+
+        System.out.println("clean up");
+
+        running.set(false);
+
         try { if (in != null) in.close(); } catch (IOException ignored) {}
         try { if (out != null) out.close(); } catch (IOException ignored) {}
         try { if (socket != null && !socket.isClosed()) socket.close(); } catch (IOException ignored) {}

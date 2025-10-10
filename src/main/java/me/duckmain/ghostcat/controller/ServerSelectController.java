@@ -67,10 +67,10 @@ public class ServerSelectController {
                 try {
                     SSLUtil.ensureServerKeystore();
 
-                    // 1. 기존 LAN 서버 탐색
-                    InetSocketAddress serverAddr = discoverLocalServer(); // 3초 탐색
+                    // 기존 LAN 서버 탐색
+                    InetSocketAddress serverAddr = discoverLocalServer(); // 2초 탐색
                     if (serverAddr == null) {
-                        // 2. 서버 없으면 새로 생성
+                        // 서버 없으면 새로 생성
                         String lanIp = getLocalNetworkIp();
                         if (lanIp == null) {
                           Platform.runLater(() -> infoLabel.setText("LAN IP를 찾을 수 없습니다."));

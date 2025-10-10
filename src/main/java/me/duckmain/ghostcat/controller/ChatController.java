@@ -63,16 +63,19 @@ public class ChatController {
     }
     
     // TODO: PEER Refresh시 Stream 닫히는 문제 해결 필요 [자동 Refresh됨 그래서 필요한가 의문임]
-    @FXML
-    protected void onRefreshPeers() {
-        if (client == null) return;
-        try {
-            client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
-            appendChat("Requested peer list update.");
-        } catch (Exception e) {
-            logError("Refresh peers failed", e);
-        }
-    }
+    /* *
+     * 일단 주석처리함
+     * @FXML
+     * protected void onRefreshPeers() {
+     *      if (client == null) return;
+     *      try {
+     *          client.sendRegister(Base64.getEncoder().encodeToString(CryptoUtils.getStaticPublic()));
+     *          appendChat("Requested peer list update.");
+     *      } catch (Exception e) {
+     *          logError("Refresh peers failed", e);
+     *      }
+     * }
+     * */
 
     private void onIncomingLine(String line) {
         if (line == null || line.isBlank()) return;
