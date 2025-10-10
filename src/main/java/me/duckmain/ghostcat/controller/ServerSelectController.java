@@ -132,7 +132,7 @@ public class ServerSelectController {
             Stage stage = (Stage) hostField.getScene().getWindow();
             stage.setScene(scene);
 
-            stage.setOnCloseRequest(_ -> ctrl.closeConnection());
+            stage.setOnCloseRequest( _ -> ctrl.closeConnection());
         } catch (IOException err) {
             infoLabel.setText("Chat view load fail: " + err.getMessage());
             logger.log(Level.SEVERE, "Chat view load fail", err);
