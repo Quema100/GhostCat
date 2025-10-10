@@ -63,7 +63,7 @@ public class ChatController {
     }
     
     // TODO: PEER Refresh시 Stream 닫히는 문제 해결 필요 [자동 Refresh됨 그래서 필요한가 의문임]
-    /* *
+    /*
      * 일단 주석처리함
      * @FXML
      * protected void onRefreshPeers() {
@@ -75,7 +75,7 @@ public class ChatController {
      *          logError("Refresh peers failed", e);
      *      }
      * }
-     * */
+     */
 
     private void onIncomingLine(String line) {
         if (line == null || line.isBlank()) return;
