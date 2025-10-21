@@ -19,7 +19,7 @@
     </HBox>
         <HBox spacing="6">
             <Label text="포트:" />
-            <TextField fx:id="portField" promptText="자동" prefWidth="80" disable="true" />
+            <TextField fx:id="portField" promptText="자동" prefWidth="80" />
         </HBox>
     </VBox>
     </HBox>

@@ -4,8 +4,15 @@ import me.duckmain.ghostcat.tls.SSLUtil;
 
 import javax.net.ssl.SSLSocket;
 import javax.net.ssl.SSLSocketFactory;
-import java.io.*;
-import java.net.*;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.net.InetSocketAddress;
+import java.util.Base64;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 
@@ -68,6 +75,28 @@ public class ChatClient {
     public void sendRegister(String pubB64) { sendLine("REGISTER|" + nick + "|" + pubB64); }
     public void sendKeyExchange(String pubB64, String to) { sendLine("KEY|" + nick + "|" + to + "|" + pubB64); }
     public void sendMessageToPeer(String to, String payload) { sendLine("MSG|" + nick + "|" + to + "|" + payload); }
+
+
+    public void sendImageToPeer(String to, File imageFile) { sendFile(to, imageFile, "IMG"); }
+
+    public void sendVideoToPeer(String to, File videoFile) { sendFile(to, videoFile, "VID"); }
+
+    private void sendFile(String to, File file, String type) {
+        if (file == null || !file.exists() || !file.isFile()) {
+            onLine.accept("File not found: " + file);
+            return;
+        }
+
+        try (FileInputStream fis = new FileInputStream(file)) {
+            byte[] data = fis.readAllBytes();
+            String encoded = Base64.getEncoder().encodeToString(data);
+            String fileName = file.getName();
+            sendLine(type + "|" + nick + "|" + to + "|" + fileName + "|" + encoded);
+            onLine.accept("Sent " + type + " file: " + fileName + " (" + data.length + " bytes)");
+        } catch (IOException e) {
+            onLine.accept("File send failed: " + e.getMessage());
+        }
+    }
 
     private synchronized void sendLine(String line) {
         try {

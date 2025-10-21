@@ -2,18 +2,31 @@ package me.duckmain.ghostcat.network;
 
 import me.duckmain.ghostcat.tls.SSLUtil;
 
-import javax.net.ssl.SSLServerSocketFactory;
 import javax.net.ssl.SSLServerSocket;
-import java.io.*;
-import java.net.*;
+import javax.net.ssl.SSLServerSocketFactory;
+import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.OutputStreamWriter;
+import java.net.DatagramPacket;
+import java.net.DatagramSocket;
+import java.net.InetAddress;
+import java.net.Socket;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
-import java.util.*;
-import java.util.concurrent.*;
 import java.util.Iterator;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-// TODO: P2P 계승 코드 필요. Tlqkf w qudtls같은 AI 제대로 못만드나
+// P2P 계승 없이 한명이 서버 유지하는걸로 했음
 public class ChatServer {
     private final int port;
     private final Map<String, Client> clients = new ConcurrentHashMap<>();

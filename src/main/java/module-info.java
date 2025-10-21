@@ -10,6 +10,7 @@ module me.duckmain.ghostcat {
     requires org.bouncycastle.provider;
     requires org.bouncycastle.pkix;
     requires eu.hansolo.tilesfx;
+    requires java.desktop;
 
     opens me.duckmain.ghostcat to javafx.fxml;
     opens me.duckmain.ghostcat.controller to javafx.fxml;
